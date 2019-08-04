@@ -323,6 +323,13 @@
                 .text('Age groups (years)')
 
             svgContainer.append('text')
+                .attr('class', 'label')
+                .attr('x', width / 2 + margin)
+                .attr('y', height + margin * 1.7)
+                .attr('text-anchor', 'middle')
+                .text('Total population of ' + currentCountry + ' in year ' +  currentYear + ': ' + totalPopulation);
+
+            svgContainer.append('text')
                 .attr('class', 'title')
                 .attr('x', width / 2 + margin)
                 .attr('y', 40)
