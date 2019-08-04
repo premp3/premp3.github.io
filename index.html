@@ -1,0 +1,445 @@
+<html>
+<script src='https://d3js.org/d3.v5.min.js'></script>
+
+<style>
+    .timer {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 25;
+        color: greenyellow;
+        background-color: black;
+        padding: 10px;
+    }
+
+    .tooltipText {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 14;
+    }
+
+    .title {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 32;
+        color: #006699;
+    }
+
+    #message {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 20;
+        cursor: pointer;
+        color: #006699;
+    }
+
+    .titleaction {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 28;
+        cursor: pointer;
+        color: #006699;
+    }
+
+    .label {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 16;
+        color: #006699;
+        font-weight: bold;
+    }
+
+    .selectionPanel {
+        padding: 10px;
+        max-width: 200px;
+        max-height: 300px;
+        width: 200px;
+        height: 40px;
+        scroll-behavior: auto;
+        display: none;
+        position: absolute;
+        text-align: center;
+        border-radius: 8px;
+        background: #b35900;
+        color: white;
+        font-size: 18;
+        cursor: pointer;
+    }
+
+    .item {
+        padding: 5px;
+        font-size: 18;
+    }
+
+    .legend {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 16;
+        color: #006699;
+        font-weight: bold;
+    }
+
+    .female {
+        color: #e377c2;
+    }
+
+    .male {
+        color: #1f77b4;
+    }
+
+    .tooltip {
+        position: absolute;
+        text-align: center;
+        max-width: 270px;
+        max-height: 230px;
+        padding: 8px;
+        border: none;
+        border-radius: 8px;
+        margin-top: -30px;
+        font: 10px sans-serif;
+        background: black;
+        color: white;
+        pointer-events: none;
+    }
+
+    body {
+        background-color: blanchedalmond;
+    }
+</style>
+
+<body onload="init()">
+    <div id="container"></div>
+    <div id="message"></div>
+    <select id="years" class="selectionPanel"></select>
+    <select id="countries" class="selectionPanel"></select>
+    <svg width=1600 height=800>
+    </svg>
+    <script type="text/javascript" lang="javascript">
+
+        var chartdata = null;
+        var yearStart = 1960;
+        var yearEnd = 2017;
+        var currentYear = yearStart;
+        var margin = 150;
+        var height = 500;
+        var width = 1300;
+
+        var extractBuckets = function (code) {
+            var result = "";
+            if (code) {
+                var codeParts = code.split(".");
+                var gender = codeParts[3] == "MA" ? "Male" : codeParts[3] == "FE" ? "Female" : "";
+                var range = codeParts[2];
+                var start = range.substring(0, 2);
+                var end = range.substring(2);
+                result = { bucket: start + "-" + end, gender: gender };
+            }
+
+            return result;
+        };
+
+        var populationTotal = {
+            range: "Total",
+            code: "SP.POP.TOTL",
+            male: "SP.POP.TOTL.MA.IN",
+            female: "SP.POP.TOTL.FE.IN",
+            femalePercent: "SP.POP.TOTL.FE.ZS",
+            malePercent: "SP.POP.TOTL.MA.ZS"
+        };
+
+        var allWorld = "World";
+        var currentCountry = allWorld;
+
+        var resetScene = function (year, country) {
+            currentCountry = country;
+            currentYear = year;
+            d3.select("svg").html("");
+            renderChart(chartdata);
+        };
+
+        var getColumnValues = function (data, column, unique) {
+            var result = [];
+            if (data && data.length > 0) {
+                for (index = 0; index < data.length; index++) {
+                    if (column && data[index]) {
+                        var value = data[index][column];
+                        if (unique) {
+                            if (result.indexOf(value) == -1) {
+                                result.push(value);
+                            }
+                        } else {
+                            result.push(value);
+                        }
+                    }
+                }
+            }
+            return result;
+        };
+
+        var generateSelectors = function (data, type) {
+            var result = "";
+            if (data && data.length > 0) {
+                for (index = 0; index < data.length; index++) {
+                    var val = data[index]
+                    result = result + "<option class='item' value='" + val + "'>" + val + "</option>";
+                }
+            }
+            return result;
+        };
+
+        var filter = function (data, predicate) {
+            var result = [];
+            if (data && data.length > 0) {
+                for (index = 0; index < data.length; index++) {
+                    if (predicate(index, data[index])) {
+                        result.push(data[index]);
+                    }
+                }
+            }
+            return result;
+        };
+
+        var transformData = function (data) {
+            var result = [];
+            if (data && data.length > 0) {
+                for (index = 0; index < data.length; index++) {
+                    var icode = data[index]["Indicator_Code"];
+                    var poppercent = parseFloat(data[index]["Population"]);
+                    var b = extractBuckets(icode);
+                    var found = false;
+                    for (j = 0; j < result.length; j++) {
+                        if (result[j].bucket == b.bucket) {
+                            found = true;
+                            if (b.gender == "Male") {
+                                result[j].malePercent = poppercent;
+                            } else if (b.gender == "Female") {
+                                result[j].femalePercent = poppercent;
+                            }
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        result.push({
+                            bucket: b.bucket,
+                            malePercent: b.gender == "Male" ? poppercent : 0.0,
+                            femalePercent: b.gender == "Female" ? poppercent : 0.0
+                        })
+                    }
+                }
+            }
+            return result;
+        };
+
+        var renderChart = function (data) {
+
+
+            var currentCountryData = filter(data, function (index, data) {
+                return data["Country_Name"] == currentCountry && data["Year"] == currentYear
+                    && data["Indicator_Code"] != populationTotal.code
+                    && data["Indicator_Code"] != populationTotal.male
+                    && data["Indicator_Code"] != populationTotal.female
+                    && data["Indicator_Code"] != populationTotal.malePercent
+                    && data["Indicator_Code"] != populationTotal.femalePercent;
+            });
+
+            var totalPopulationRecord = filter(data, function (index, data) {
+                return data["Country_Name"] == currentCountry && data["Year"] == currentYear && data["Indicator_Code"] == populationTotal.code;
+            })[0];
+
+            var totalMalePopulationRecord = filter(data, function (index, data) {
+                return data["Country_Name"] == currentCountry && data["Year"] == currentYear && data["Indicator_Code"] == populationTotal.male;
+            })[0];
+
+            var totalFemalePopulationRecord = filter(data, function (index, data) {
+                return data["Country_Name"] == currentCountry && data["Year"] == currentYear && data["Indicator_Code"] == populationTotal.female;
+            })[0];
+
+            var totalPopulation = parseFloat(totalPopulationRecord.Population);
+            var totalMalePopulation = parseFloat(totalMalePopulationRecord.Population);
+            var totalFemalePopulation = parseFloat(totalFemalePopulationRecord.Population);
+            var tdata = transformData(currentCountryData);
+            var maxTotalpopulation = d3.max(tdata, function (d, i) {
+                var mp = d.malePercent * totalMalePopulation / 100;
+                var fp = d.femalePercent * totalFemalePopulation / 100;
+                return mp > fp ? mp : fp;
+            });
+
+            var xs = d3.scaleBand().range([0, width]).domain(tdata.map(s => s.bucket)).padding(0.2);
+            var xs1 = d3.scaleBand().domain(["Male", "Female"]).range([0, xs.bandwidth()]);
+            var ys = d3.scaleLinear().domain([0.0, maxTotalpopulation]).range([height, 0]);
+
+            d3.select("svg").append("g").attr("transform", "translate(" + margin + "," + margin + ")");
+            var svgContainer = d3.select("svg");
+            var gcontainer = svgContainer.select("g");
+
+            var ageGroup = gcontainer.selectAll(".agegroup")
+                .data(tdata)
+                .enter().append("g")
+                .attr("class", "agegroup")
+                .attr("transform", s => `translate(${xs(s.bucket)},0)`);
+
+            /* Add field1 bars */
+            ageGroup.selectAll(".bar.male")
+                .data(d => [d])
+                .enter()
+                .append("rect")
+                .attr("class", "bar male")
+                .attr("x", function (d, i) { return xs1("Male"); })
+                .attr("y", function (d, i) { return ys(d.malePercent * totalMalePopulation / 100); })
+                .attr("width", xs1.bandwidth())
+                .attr("height", function (d, i) { return height - ys(d.malePercent * totalMalePopulation / 100); })
+                .attr('fill', d => "#1f77b4")
+                .on('mouseover', mouseover)
+                .on('mousemove', mousemove)
+                .on('mouseout', mouseout);
+
+            /* Add field2 bars */
+            ageGroup.selectAll(".bar.female")
+                .data(d => [d])
+                .enter()
+                .append("rect")
+                .attr("class", "bar female")
+                .attr("x", function (d, i) { return xs1("Female"); })
+                .attr("y", function (d, i) { return ys(d.femalePercent * totalFemalePopulation / 100); })
+                .attr("width", xs1.bandwidth())
+                .attr("height", function (d, i) { return height - ys(d.femalePercent * totalFemalePopulation / 100); })
+                .attr('fill', d => "#e377c2")
+                .on('mouseover', mouseover)
+                .on('mousemove', mousemove)
+                .on('mouseout', mouseout);
+
+            svgContainer.append("g")
+                .attr("transform", "translate(" + margin + "," + margin + ")")
+                .call(d3.axisLeft(ys));
+            svgContainer.append("g")
+                .attr("transform", "translate(" + margin + "," + (height + margin) + ")")
+                .call(d3.axisBottom(xs));
+
+            svgContainer.append('text')
+                .attr('class', 'label')
+                .attr('x', -(height / 2) - margin)
+                .attr('y', margin / 2.4)
+                .attr('transform', 'rotate(-90)')
+                .attr('text-anchor', 'middle')
+                .text('Population');
+
+            svgContainer.append('text')
+                .attr('class', 'label')
+                .attr('x', width / 2 + margin)
+                .attr('y', height + margin * 1.4)
+                .attr('text-anchor', 'middle')
+                .text('Age groups (years)')
+
+            svgContainer.append('text')
+                .attr('class', 'title')
+                .attr('x', width / 2 + margin)
+                .attr('y', 40)
+                .attr('text-anchor', 'middle')
+                .text("Population distribution by age groups and gender.");
+
+            svgContainer.append('text')
+                .attr('class', 'label')
+                .attr('x', 1300)
+                .attr('y', 700)
+                .attr('text-anchor', 'middle')
+                .text("Female population in older age groups is higher than male population.")
+                .attr('fill', '#006699');
+
+
+
+
+            var legend = svgContainer.append("g")
+                .attr("class", "legend")
+                //.attr("x", w - 65)
+                //.attr("y", 50)
+                .attr("height", 100)
+                .attr("width", 100)
+                .attr('transform', 'translate(-10,80)')
+
+
+            legend.selectAll('rect')
+                .data(["Male", "Female"])
+                .enter()
+                .append("rect")
+                .attr("x", width - 65)
+                .attr("y", function (d, i) { return i * 30; })
+                .attr("width", 20)
+                .attr("height", 20)
+                .style("fill", function (d) {
+                    return d == "Female" ? "#e377c2" : "#1f77b4";
+                })
+
+            legend.selectAll('text')
+                .data(["Male", "Female"])
+                .enter()
+                .append("text")
+                .attr('class', 'legend')
+                .attr("x", width - 40)
+                .attr("y", function (d, i) { return i * 30 + 18; })
+                .text(function (d) {
+                    return d;
+                });
+
+            // tooltips
+            var tipContainer = d3.select('#container').append('div')
+                .attr('class', 'tooltip')
+                .style('display', 'none');
+            function mouseover() {
+                tipContainer.style('display', 'inline');
+            }
+            function mousemove() {
+                var d = d3.select(this).data()[0]
+                tipContainer
+                    .html('<div class="tooltipText">Age group: ' + d.bucket + ' years. </div><hr/><div class="tooltipText">Male population: ' + parseInt(d.malePercent * totalMalePopulation / 100) + ' (' + d.malePercent.toFixed(2) + '%)</div><div class="tooltipText">Female population: ' + parseInt(d.femalePercent * totalFemalePopulation / 100) + ' (' + d.femalePercent.toFixed(2) + '%)</div>')
+                    .style('left', (d3.event.pageX - 34) + 'px')
+                    .style('top', (d3.event.pageY - 12) + 'px');
+            }
+            function mouseout() {
+                tipContainer.style('display', 'none');
+            }
+
+        };
+
+        var displayMessage = function () {
+            var d = new Date();
+            var t = d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds();
+            d3.select('#message').html("<H1> Please wait while the visualization loads the WDI data. </H1> This may take upto 5-6 minutes, so please be patient. <span class='timer'><b>" + t + "</b></span> <br/><br/>For information about WDI data, please visit <a target='_blank' href='http://datatopics.worldbank.org/world-development-indicators/'> <b>W</b>orld <b>D</b>evelopment <b>I</b>ndicators</a> website.<br/>");
+        };
+
+        async function init() {
+
+            var loading = d3.select('#message').style('display', 'inline')
+                .html("<H1> Please wait while the visualization loads the WDI data. </H1> This may take upto 5-6 minutes, so please be patient. <br/><br/>For information about WDI data, please visit <a target='_blank' href='http://datatopics.worldbank.org/world-development-indicators/'> <b>W</b>orld <b>D</b>evelopment <b>I</b>ndicators</a> website.<br/>");
+            var handle = setInterval(displayMessage, 1000);
+
+            chartdata = await d3.csv("https://datavisualization.blob.core.windows.net/visualization/WDI_Population.csv?sp=r&st=2019-08-04T14:54:22Z&se=2019-12-31T23:54:22Z&spr=https&sv=2018-03-28&sig=0DtmRZaEOeiX1Z40bKvJTo%2FwrNimeN4ET%2BitJo%2BH7x8%3D&sr=b");    
+            //chartdata = await d3.csv("WDI_Population.csv");
+            var yearsSelector = d3.select('#years')
+                .attr('class', 'selectionPanel')
+                .style('display', 'inline');
+
+            var countrySelector = d3.select('#countries')
+                .attr('class', 'selectionPanel')
+                .style('display', 'inline');
+
+            var allYears = getColumnValues(chartdata, "Year", true);
+            yearsSelector.html(generateSelectors(allYears, "year"));
+            yearsSelector.style('left', '850px').style('top', '80px');
+            yearsSelector.property('value', currentYear);
+            yearsSelector.on('change', function () {
+                var newData = d3.select(this).property('value');
+                resetScene(newData, currentCountry);
+            });
+
+            var allCountries = getColumnValues(chartdata, "Country_Name", true);
+            countrySelector.html(generateSelectors(allCountries, "country"));
+            countrySelector.style('left', '600px').style('top', '80px');
+            countrySelector.property('value', currentCountry);
+            countrySelector.on('change', function () {
+                var newData = d3.select(this).property('value');
+                resetScene(currentYear, newData);
+            });
+
+            if (handle) {
+                clearInterval(handle);
+            }
+            loading.html("").style('display', 'none');
+            renderChart(chartdata);
+
+        }
+    </script>
+</body>
+
+</html>
