@@ -446,8 +446,7 @@
                 .html("<H1> Please wait while the visualization loads the WDI data. </H1> This may take upto 5-6 minutes, so please be patient. <br/><br/>For information about WDI data, please visit <a target='_blank' href='http://datatopics.worldbank.org/world-development-indicators/'> <b>W</b>orld <b>D</b>evelopment <b>I</b>ndicators</a> website.<br/>");
             var handle = setInterval(displayMessage, 1000);
 
-            //chartdata = await d3.csv("https://datavisualization.blob.core.windows.net/visualization/WDI_Population.csv?sp=r&st=2019-08-04T14:54:22Z&se=2019-12-31T23:54:22Z&spr=https&sv=2018-03-28&sig=0DtmRZaEOeiX1Z40bKvJTo%2FwrNimeN4ET%2BitJo%2BH7x8%3D&sr=b");    
-            chartdata = await d3.csv("WDI_Population.csv");
+            chartdata = await d3.csv("https://datavisualization.blob.core.windows.net/visualization/WDI_Population.csv?sp=r&st=2019-08-04T14:54:22Z&se=2019-12-31T23:54:22Z&spr=https&sv=2018-03-28&sig=0DtmRZaEOeiX1Z40bKvJTo%2FwrNimeN4ET%2BitJo%2BH7x8%3D&sr=b");    
             var yearsSelector = d3.select('#years')
                 .attr('class', 'selectionPanel')
                 .style('display', 'inline');
