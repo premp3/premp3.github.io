@@ -101,6 +101,8 @@
 
 <body onload="init()">
     <div id="container"></div>
+    <div id="annotations"></div>
+    <div id="annotationsFemale"></div>
     <div id="message"></div>
     <select id="years" class="selectionPanel"></select>
     <select id="countries" class="selectionPanel"></select>
@@ -246,6 +248,35 @@
                 return data["Country_Name"] == currentCountry && data["Year"] == currentYear && data["Indicator_Code"] == populationTotal.female;
             })[0];
 
+            var olderFemaleRecords = filter(data, function (index, data) {
+                return data["Country_Name"] == currentCountry && data["Year"] == currentYear && 
+                (data["Indicator_Code"] == "SP.POP.6064.FE.5Y" ||
+                data["Indicator_Code"] == "SP.POP.6569.FE.5Y" || 
+                data["Indicator_Code"] == "SP.POP.7074.FE.5Y" ||
+                data["Indicator_Code"] == "SP.POP.7579.FE.5Y" ||
+                data["Indicator_Code"] == "SP.POP.80UP.FE.5Y") ;
+            });
+
+            var olderMaleRecords = filter(data, function (index, data) {
+                return data["Country_Name"] == currentCountry && data["Year"] == currentYear && 
+                (data["Indicator_Code"] == "SP.POP.6064.MA.5Y" ||
+                data["Indicator_Code"] == "SP.POP.6569.MA.5Y" || 
+                data["Indicator_Code"] == "SP.POP.7074.MA.5Y" ||
+                data["Indicator_Code"] == "SP.POP.7579.MA.5Y" ||
+                data["Indicator_Code"] == "SP.POP.80UP.MA.5Y") ;
+            });
+
+            var oldfemaleAgePercent = 0.0;
+            var oldmaleAgePercent = 0.0;
+
+            for(var i=0; i< olderFemaleRecords.length; i++) {
+                oldfemaleAgePercent = oldfemaleAgePercent + olderFemaleRecords[i].Population;
+            }
+
+            for(var i=0; i< olderMaleRecords.length; i++) {
+                oldmaleAgePercent = oldmaleAgePercent + olderMaleRecords[i].Population;
+            }
+
             var totalPopulation = parseFloat(totalPopulationRecord.Population);
             var totalMalePopulation = parseFloat(totalMalePopulationRecord.Population);
             var totalFemalePopulation = parseFloat(totalFemalePopulationRecord.Population);
@@ -322,13 +353,7 @@
                 .attr('text-anchor', 'middle')
                 .text('Age groups (years)')
 
-            svgContainer.append('text')
-                .attr('class', 'label')
-                .attr('x', width / 2 + margin)
-                .attr('y', height + margin * 1.7)
-                .attr('text-anchor', 'middle')
-                .text('Total population of ' + currentCountry + ' in year ' +  currentYear + ' was: ' + totalPopulation);
-
+        
             svgContainer.append('text')
                 .attr('class', 'title')
                 .attr('x', width / 2 + margin)
@@ -336,17 +361,7 @@
                 .attr('text-anchor', 'middle')
                 .text("Population distribution by age groups and gender.");
 
-            svgContainer.append('text')
-                .attr('class', 'label')
-                .attr('x', 1300)
-                .attr('y', 700)
-                .attr('text-anchor', 'middle')
-                .text("Female population in older age groups is higher than male population.")
-                .attr('fill', '#006699');
-
-
-
-
+        
             var legend = svgContainer.append("g")
                 .attr("class", "legend")
                 //.attr("x", w - 65)
@@ -378,6 +393,26 @@
                 .text(function (d) {
                     return d;
                 });
+
+            
+            // annotations
+            d3.select('#annotations').html("").append('div')
+                .attr('class', 'tooltip')
+                .html('<div class="tooltipText">' + currentCountry + ' - Year: ' + currentYear+ ' </div><hr/><div class="tooltipText">Total male population: ' + parseInt(totalMalePopulation) + ' </div><div class="tooltipText">Total female population: ' + parseInt(totalFemalePopulation) + '</div><div class="tooltipText">Total  population: ' + parseInt(totalPopulation) + '</div>')
+                .style('left', '200px')
+                .style('top', '730px');
+
+            var ageAnnotations = '<div class="tooltipText">' + currentCountry + ' - Year: ' + currentYear+ ' </div><hr/><div class="tooltipText">Female population in older age groups <br/> is <b>higher</b> than male population.</div>';
+            if (oldmaleAgePercent > oldfemaleAgePercent) {
+                ageAnnotations = '<div class="tooltipText">' + currentCountry + ' - Year: ' + currentYear+ ' </div><hr/><div class="tooltipText">Female population in older age groups <br/> is <b>less</b> than male population.</div>';
+            }
+
+            d3.select('#annotationsFemale').html("").append('div')
+                .attr('class', 'tooltip')
+                .html(ageAnnotations)
+                .style('left', '1150px')
+                .style('top', '730px');
+
 
             // tooltips
             var tipContainer = d3.select('#container').append('div')
@@ -411,8 +446,8 @@
                 .html("<H1> Please wait while the visualization loads the WDI data. </H1> This may take upto 5-6 minutes, so please be patient. <br/><br/>For information about WDI data, please visit <a target='_blank' href='http://datatopics.worldbank.org/world-development-indicators/'> <b>W</b>orld <b>D</b>evelopment <b>I</b>ndicators</a> website.<br/>");
             var handle = setInterval(displayMessage, 1000);
 
-            chartdata = await d3.csv("https://datavisualization.blob.core.windows.net/visualization/WDI_Population.csv?sp=r&st=2019-08-04T14:54:22Z&se=2019-12-31T23:54:22Z&spr=https&sv=2018-03-28&sig=0DtmRZaEOeiX1Z40bKvJTo%2FwrNimeN4ET%2BitJo%2BH7x8%3D&sr=b");    
-            //chartdata = await d3.csv("WDI_Population.csv");
+            //chartdata = await d3.csv("https://datavisualization.blob.core.windows.net/visualization/WDI_Population.csv?sp=r&st=2019-08-04T14:54:22Z&se=2019-12-31T23:54:22Z&spr=https&sv=2018-03-28&sig=0DtmRZaEOeiX1Z40bKvJTo%2FwrNimeN4ET%2BitJo%2BH7x8%3D&sr=b");    
+            chartdata = await d3.csv("WDI_Population.csv");
             var yearsSelector = d3.select('#years')
                 .attr('class', 'selectionPanel')
                 .style('display', 'inline');
